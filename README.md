@@ -269,7 +269,13 @@ python server.py
 python main.py
 # → http://localhost:8000/docs
 ```
+---
 
+## Images Detected
+<img width="640" height="425" alt="bus1" src="https://github.com/user-attachments/assets/080496f0-00c0-4e05-8869-ece86b65a5c9" />
+
+
+```
 ---
 
 ## Dependencies
