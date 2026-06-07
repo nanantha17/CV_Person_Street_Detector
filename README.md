@@ -1,5 +1,5 @@
-# CV_Hayden_MLOps
-## Edge Computer Vision Deployment — Hayden AI Analog
+# CV_StreetDetector_MLOps
+## Edge Computer Vision Deployment — Street CV AI Analog
 
 YOLOv3 object detection system built to understand the full deployment lifecycle
 of an edge CV system: model selection, containerized API, inference telemetry,
@@ -25,7 +25,7 @@ edge AI, and government deployment stack — without domain specialists present.
 ## Project Structure
 
 ```
-CV_Hayden_MLOps/
+CV_StreetDetector_MLOps/
 ├── server.py              # Detection functions, telemetry, benchmarks
 ├── main.py                # FastAPI server — /predict, /health, /metrics
 ├── images/                # Source images (street scenes, vehicles, persons)
