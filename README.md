@@ -59,12 +59,12 @@ X-Objects-Detected: 4
 
 ---
 
-## Hayden-Relevant Detection Classes
+## STREET Detection Classes
 
-The system filters all 80 COCO classes down to Hayden-relevant targets:
+The system filters all 80 COCO classes down to street targets:
 
 ```python
-HAYDEN_CLASSES = ['person', 'car', 'bus', 'truck', 'bicycle']
+STREET_CLASSES = ['person', 'car', 'bus', 'truck', 'bicycle']
 ```
 
 This mirrors the enforcement-relevant object classes for bus lane,
