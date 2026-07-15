@@ -6,8 +6,7 @@ of an edge CV system: model selection, containerized API, inference telemetry,
 and multi-stream architecture constraints.
 
 Built as a TPM depth project to credibly engage with Inference hardware,
-edge AI — without domain specialists present.
-
+edge AI and API
 ---
 
 ## Stack
@@ -61,7 +60,7 @@ X-Objects-Detected: 4
 
 ## STREET Detection Classes
 
-The system filters all 80 COCO classes down to street targets:
+The system filters all 80 COCO (Common Object in Context) classes down to street targets:
 
 ```python
 STREET_CLASSES = ['person', 'car', 'bus', 'truck', 'bicycle']
