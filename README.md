@@ -6,11 +6,11 @@ of an edge CV system: model selection, containerized API, inference telemetry,
 and multi-stream architecture constraints.
 
 Built as a TPM depth project to credibly engage with Inference hardware,
-edge AI and API
----
+edge AI and FAST API
+
 
 ## Stack
-
+---
 | Layer | Technology |
 |---|---|
 | Detection model | YOLOv3 / YOLOv3-tiny (cvlib + OpenCV DNN backend) |
