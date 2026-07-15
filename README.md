@@ -1,12 +1,7 @@
 # CV_StreetDetector_MLOps
 ## Edge Computer Vision Deployment — Street CV AI Analog
 
-YOLOv3 object detection system built to understand the full deployment lifecycle
-of an edge CV system: model selection, containerized API, inference telemetry,
-and multi-stream architecture constraints.
-
-Built as a TPM depth project to credibly engage with Inference hardware,
-edge AI and FAST API
+I built a generic edge computer vision system — YOLOv3-based person/vehicle/street detector — specifically to get hands-on with the full deployment lifecycle of edge CV: model selection trade-offs, containerized inference as a FastAPI service, telemetry and latency benchmarking, and the architectural constraints of running multiple camera streams concurrently. I framed the use case around something like a transit or street-camera deployment — multiple simultaneous video feeds, resource-constrained hardware — because that's exactly the kind of scenario where the choices matter: what happens to inference latency on cold start, what confidence threshold is defensible, and where you hit a wall with software-only concurrency versus needing hardware acceleration.DeepStream/Jetson NPU integration is analyzed as a production path, not implemented in this repo
 
 
 ## Stack
