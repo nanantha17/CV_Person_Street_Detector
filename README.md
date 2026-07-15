@@ -270,12 +270,11 @@ python main.py
 
 
 ```
----
+
 
 ## Dependencies
-
+---
 | Package | Version | Purpose |
-|---|---|---|
 | Python | 3.11 | Runtime |
 | TensorFlow | 2.15.0 | Model backend |
 | OpenCV | 4.8.1.78 | Image processing |
