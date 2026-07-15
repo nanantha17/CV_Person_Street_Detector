@@ -5,8 +5,8 @@ YOLOv3 object detection system built to understand the full deployment lifecycle
 of an edge CV system: model selection, containerized API, inference telemetry,
 and multi-stream architecture constraints.
 
-Built as a TPM depth project to credibly engage with Hayden AI's hardware,
-edge AI, and government deployment stack — without domain specialists present.
+Built as a TPM depth project to credibly engage with Inference hardware,
+edge AI — without domain specialists present.
 
 ---
 
