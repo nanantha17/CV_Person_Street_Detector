@@ -14,7 +14,7 @@ def export_model():
     print("Exporting model to Core ML format...")
     # Produces 'yolov8n.mlpackage'
     export_path = model.export(format="coreml", nms=True)
-    return export_path
+    return str(export_path)
 
 
 def verify_device_placement(model_path, compute_unit):
