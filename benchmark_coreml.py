@@ -5,7 +5,7 @@ import argparse
 import numpy as np
 from ultralytics import YOLO
 import coremltools as ct
-
+from PIL import Image
 
 def export_model():
     print("Loading YOLOv8n model...")
@@ -50,7 +50,7 @@ def benchmark_compute_unit(model_path, compute_unit, num_runs=100):
     model = ct.models.MLModel(model_path, compute_units=config)
 
     input_name = list(model.input_description)[0]
-    dummy_input = {input_name: np.random.rand(1, 3, 640, 640).astype(np.float32)}
+    dummy_input = {input_name: Image.new("RGB", (640, 640))}
 
     # Warm-up run to eliminate initialization overhead from telemetry
     _ = model.predict(dummy_input)
