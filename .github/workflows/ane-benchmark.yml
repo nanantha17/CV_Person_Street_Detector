@@ -1,0 +1,40 @@
+name: Core ML ANE Profiling & Latency Benchmark
+
+on:
+  push:
+    branches:
+      - 'feature/coreml-*'
+  workflow_dispatch:
+
+jobs:
+  profile-ane:
+    runs-on: macos-14   # Apple Silicon (arm64) hosted runner
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install ultralytics coremltools numpy
+
+      - name: Confirm runner architecture (sanity check)
+        run: |
+          uname -m
+          sysctl -n machdep.cpu.brand_string || true
+
+      - name: Run Core ML and ANE benchmark script
+        run: |
+          python benchmark_coreml.py --fps-target 30
+
+      - name: Upload profiling metrics
+        uses: actions/upload-artifact@v4
+        with:
+          name: coreml-ane-performance-metrics
+          path: metrics/
