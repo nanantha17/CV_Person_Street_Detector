@@ -2,10 +2,8 @@
 
 ## Motivation
 
-Prompted by a question about video/camera firmware experience during an interview screen,
-this benchmark investigates on-device ML inference optimization for performance, power, and
-memory — the same tradeoff space involved in features like Cinematic Mode, Smart HDR, and
-real-time video stabilization on Apple devices.
+Prompted by a question about video/camera firmware ,this benchmark investigates on-device ML inference optimization for performance, power, and
+memory — the same tradeoff space involved in features like Cinematic Mode, Smart HDR, and real-time video stabilization on Apple devices.
 
 ## What was built
 
@@ -62,11 +60,6 @@ circumstantial evidence of real heterogeneous compute engagement, but it is **in
 performance behavior, not directly confirmed via Xcode's Performance tab or a compute-plan
 API** — that direct confirmation remains a follow-up step if revisited.
 
-## Power draw
-
-`powermetrics` requires elevated (sudo/root) privileges not available on this rental tier;
-power measurement was not obtainable in this session. Latency was the primary metric
-captured.
 
 ## Real-time sustainability (30 FPS budget: 33.3ms/frame)
 
@@ -78,8 +71,8 @@ particular check wasn't the limiting factor on current-generation hardware.
 
 Built a Core ML benchmark, ran it in a virtualized CI environment first, got a result that was
 suspicious on its face (CPU-only fastest), researched why (hypervisor-level ANE/GPU
-restrictions), then obtained real Apple Silicon hardware and reproduced the benchmark —
-confirming a 5.2x speedup consistent with genuine ANE engagement. Hands-on experience with
+restrictions), then ran same benchmark script on real Apple Silicon hardware (M4) and reproduced the benchmark —
+confirming a **5.2x** speedup consistent with genuine ANE engagement. Hands-on experience with
 Core ML's compute-unit model, MIL graph compilation, and the practical gap between virtualized
 and bare-metal ML inference on Apple hardware.
 
