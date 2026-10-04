@@ -1,0 +1,4 @@
+Compute Unit,p50 (ms),p95 (ms),Verified Device Placement
+CPU_ONLY,10.50,11.08,False
+CPU_AND_GPU,4.82,5.03,False
+ALL,2.01,2.21,False

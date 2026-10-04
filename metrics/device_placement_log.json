@@ -1,0 +1,14 @@
+[
+  {
+    "verified": false,
+    "compute_unit": "CPU_ONLY"
+  },
+  {
+    "verified": false,
+    "compute_unit": "CPU_AND_GPU"
+  },
+  {
+    "verified": false,
+    "compute_unit": "ALL"
+  }
+]
