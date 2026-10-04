@@ -1,290 +1,96 @@
-# CV_StreetDetector_MLOps
-## Edge Computer Vision Deployment — Street CV AI Analog
+# Core ML / ANE Inference Benchmark — YOLOv8n on Apple Silicon
 
-I built a generic edge computer vision system — YOLOv3-based person/vehicle/street detector — specifically to get hands-on with the full deployment lifecycle of edge CV: model selection trade-offs, containerized inference as a FastAPI service, telemetry and latency benchmarking, and the architectural constraints of running multiple camera streams concurrently. 
+## Motivation
 
-I framed the use case around something like a transit or street-camera deployment — multiple simultaneous video feeds, resource-constrained hardware — because that's exactly the kind of scenario where the choices matter: what happens to inference latency on cold start, what confidence threshold is defensible, and where you hit a wall with software-only concurrency versus needing hardware acceleration.DeepStream/Jetson NPU integration is analyzed as a production path, not implemented in this repo
+Prompted by a question about video/camera firmware experience during an interview screen,
+this benchmark investigates on-device ML inference optimization for performance, power, and
+memory — the same tradeoff space involved in features like Cinematic Mode, Smart HDR, and
+real-time video stabilization on Apple devices.
 
+## What was built
 
-## Stack
----
-| Layer | Technology |
-|---|---|
-| Detection model | YOLOv3 / YOLOv3-tiny (cvlib + OpenCV DNN backend) |
-| Inference API | FastAPI with versioned model endpoints |
-| Containerization | Docker |
-| Telemetry | Structured JSONL logging (AWS IoT device shadow analog) |
-| Runtime | Python 3.11 / TensorFlow 2.15 |
+- Exported a YOLOv8n object detection model to Core ML format (`.mlpackage`) using
+  `ultralytics` + `coremltools`.
+- Benchmarked inference latency (p50/p95) across three Core ML compute unit configurations:
+  `CPU_ONLY`, `CPU_AND_GPU`, and `ALL` (CPU + GPU + Apple Neural Engine).
+- Ran the identical benchmark script in two environments to isolate a real engineering
+  question: **does compute-unit selection behave the same on virtualized vs. bare-metal
+  Apple Silicon?**
 
----
+## Environment 1 — Virtualized (GitHub Actions `macos-14` runner)
 
-## Project Structure
+Confirmed `arm64`, Apple M1 (Virtual) via `uname -m` / `sysctl`.
 
-```
-CV_StreetDetector_MLOps/
-├── server.py              # Detection functions, telemetry, benchmarks
-├── main.py                # FastAPI server — /predict, /health, /metrics
-├── images/                # Source images (street scenes, vehicles, persons)
-├── images_with_boxes/     # Inference output with bounding boxes
-├── images_uploaded/       # Images uploaded via API /predict endpoint
-├── telemetry.jsonl        # Structured inference log (auto-generated)
-└── README.md
-```
-
----
-
-## API Endpoints
-
-| Endpoint | Method | Description |
+| Compute Unit | p50 (ms) | p95 (ms) |
 |---|---|---|
-| `/` | GET | Health check message |
-| `/predict` | POST | Upload image → returns image with bounding boxes |
-| `/health` | GET | Server status, model version, uptime |
-| `/metrics` | GET | p50/p95 latency, total inferences from telemetry log |
-| `/docs` | GET | FastAPI interactive UI |
+| CPU_ONLY | 57.11 | 78.51 |
+| CPU_AND_GPU | 111.79 | 131.99 |
+| ALL | 93.77 | 127.94 |
 
-### Response Headers on /predict
+**Result: CPU_ONLY was fastest.** `CPU_AND_GPU` and `ALL` were both *slower* than CPU alone —
+the opposite of what real hardware acceleration should produce.
 
-Every prediction returns custom headers for fleet monitoring:
+## Environment 2 — Bare-metal (rented physical Mac mini, Apple M4)
 
-```
-X-Model-Version: v1.0.0
-X-Inference-Latency-Ms: 174.15
-X-Objects-Detected: 4
-```
+Confirmed `arm64`, Apple M4 via `uname -m` / `sysctl`.
 
----
-
-## STREET Detection Classes
-
-The system filters all 80 COCO (Common Object in Context) classes down to street targets:
-
-```python
-STREET_CLASSES = ['person', 'car', 'bus', 'truck', 'bicycle']
-```
-
-This mirrors the enforcement-relevant object classes for bus lane,
-bus stop, and street safety applications.
-
----
-
-## Benchmark Results
-
-### Model Comparison (steady-state, cached weights)
-
-| Model | Avg Latency | p50 | p95 |
+| Compute Unit | p50 (ms) | p95 (ms) | Speedup vs. CPU_ONLY |
 |---|---|---|---|
-| yolov3-tiny | 178ms | 172ms | 494ms |
-| yolov3-full | 139ms | 147ms | 494ms |
+| CPU_ONLY | 10.50 | 11.08 | 1.0x |
+| CPU_AND_GPU | 4.82 | 5.03 | 2.2x |
+| ALL | 2.01 | 2.21 | **5.2x** |
 
-**Finding 1 — Model size paradox:**
-yolov3-full is NOT slower than yolov3-tiny on cached weights.
-OpenCV's DNN backend is better optimized for the full architecture on x86.
-TPM implication: model selection requires benchmarking on TARGET hardware —
-spec-sheet assumptions do not hold.
+**Result: clean, monotonic speedup** — CPU → CPU+GPU → ALL each get faster, consistent with
+genuine hardware acceleration being engaged at each step.
 
----
+## Why the two environments disagree
 
-### Full Benchmark Table (steady-state, cached weights)
+Research into Apple's virtualization stack indicates the mechanism: Apple does not expose a
+public ANE instruction set or driver interface — execution routes through Core ML or private
+frameworks. Hypervisors (including the one backing GitHub's macOS runners) block the direct
+device-driver interactions required to engage the ANE, and GPU passthrough in a virtualized
+macOS guest is similarly limited compared to bare-metal. The CI result is best explained by
+compute-unit requests silently falling back to CPU-equivalent execution, with virtualization
+overhead actually making `CPU_AND_GPU`/`ALL` paths slower than plain CPU.
 
-| Model | Image | Objects | Latency |
-|---|---|---|---|
-| yolov3-tiny | street.jpg | 4 cars | 174ms |
-| yolov3-tiny | bus1.jpg | car + bus | 188ms |
-| yolov3-tiny | person.jpg | 1 person | 172ms |
-| yolov3-tiny | car1.jpg | 1 car | 210ms |
-| yolov3-tiny | car2.jpg | 3 cars | 145ms |
-| yolov3 | street.jpg | 4 cars | 154ms |
-| yolov3 | bus1.jpg | car + bus | 155ms |
-| yolov3 | person.jpg | 1 person | 147ms |
-| yolov3 | car1.jpg | 1 car | 127ms |
-| yolov3 | car2.jpg | 3 cars | 113ms |
+## Verification caveat
 
-**Sequential 3-stream:** 540ms wall time, 147ms p50
-**p50 overall:** 171ms | **p95 overall:** 494ms
+`coremltools.models.MLModel.get_compute_plan()` was not available in this coremltools version
+(9.0) in either environment, so per-operation device placement could not be programmatically
+confirmed in either run. The bare-metal result's clean, monotonic latency pattern is strong
+circumstantial evidence of real heterogeneous compute engagement, but it is **inferred from
+performance behavior, not directly confirmed via Xcode's Performance tab or a compute-plan
+API** — that direct confirmation remains a follow-up step if revisited.
 
----
+## Power draw
 
-### Cold-Start vs Cached Latency
+`powermetrics` requires elevated (sudo/root) privileges not available on this rental tier;
+power measurement was not obtainable in this session. Latency was the primary metric
+captured.
 
-| Condition | Latency | Ratio |
-|---|---|---|
-| First run (weights not cached) | ~1,073ms | 1.0x |
-| Cached weights | ~77ms | 13.9x |
+## Real-time sustainability (30 FPS budget: 33.3ms/frame)
 
-**Finding 2 — Cold-start penalty:**
-13.9x latency penalty on first inference when weights are not pre-staged.
-On a vehicle with no prior deployment, first inference is unreliable
-for enforcement decisions.
-TPM implication: model weights must be pre-staged during vehicle provisioning
-via OTA — not pulled on first use. This is a required exit criterion
-for fleet activation.
+All three compute-unit configurations on bare-metal M4 comfortably sustain a 30 FPS budget
+(p95 well under 33.3ms in every case) — the model used (YOLOv8n) is small enough that this
+particular check wasn't the limiting factor on current-generation hardware.
 
----
+## Summary for discussion
 
-### Confidence Threshold Operating Point
+Built a Core ML benchmark, ran it in a virtualized CI environment first, got a result that was
+suspicious on its face (CPU-only fastest), researched why (hypervisor-level ANE/GPU
+restrictions), then obtained real Apple Silicon hardware and reproduced the benchmark —
+confirming a 5.2x speedup consistent with genuine ANE engagement. Hands-on experience with
+Core ML's compute-unit model, MIL graph compilation, and the practical gap between virtualized
+and bare-metal ML inference on Apple hardware.
 
-| Threshold | Detections | Behavior |
-|---|---|---|
-| 0.5 | 0 | Misses real objects entirely |
-| 0.3 | 1–4 | Correct operating point |
-| 0.2 | 55–148 | False positive flood |
-
-**Finding 3 — Threshold is a program decision, not a parameter:**
-Default threshold (0.5) missed bus and person detections entirely.
-0.2 flooded results with false positives. 0.3 is the validated operating
-point for this model/hardware profile.
-
-TPM implication: confidence threshold requires re-validation on every model
-version update and every hardware change. Perception sets the technical floor;
-Legal/Operations own the false-positive tolerance. Both must sign off before
-fleet deployment.
-
----
-
-### Multi-Stream Architecture Constraint
-
-**Finding 4 — cvlib/YOLOv3 is not thread-safe:**
-Concurrent threading produces shared model state corruption across streams.
-Multiprocessing isolates correctly but incurs Python/TF spawn overhead
-(~13s on Windows dev machine — not representative of Linux edge hardware).
-
-**Production path for multi-camera vehicles:**
-
-| Approach | Viable | Trade-off |
-|---|---|---|
-| Linux + multiprocessing | Yes | RAM-bound — one model copy per process |
-| NVIDIA DeepStream / Jetson NPU | Yes | Hardware cost — true concurrent streams |
-| Python threading (cvlib) | No | Shared state corruption |
-
-TPM implication: multi-camera vehicle configurations require an explicit
-architectural decision before hardware is locked. This is a platform decision,
-not a software configuration.
-
----
-
-## Sequential 3-Stream Benchmark
-
-| Metric | Value |
-|---|---|
-| Wall time | 540ms |
-| Avg per image | 147ms |
-| p50 | 147ms |
-| Total objects detected | 7 |
-
-At 1 fps per stream, single-stream 147ms p50 has 6x headroom.
-At 10 fps that headroom disappears entirely.
-Frame rate requirement is a program dependency that must be defined
-before hardware selection.
-
----
-
-## Telemetry Pipeline
-
-Every inference writes a structured JSON record to `telemetry.jsonl`:
-
-```json
-{
-  "timestamp": "2026-06-07T20:00:42Z",
-  "image": "street.jpg",
-  "model": "yolov3-tiny",
-  "model_version": "v1.0.0",
-  "confidence_thresh": 0.3,
-  "latency_ms": 174.15,
-  "objects_detected": 4,
-  "detections": [
-    {"class": "car", "confidence": 0.773},
-    {"class": "car", "confidence": 0.370},
-    {"class": "car", "confidence": 0.332},
-    {"class": "car", "confidence": 0.301}
-  ]
-}
-```
-
-This mirrors AWS IoT Core device shadow reporting — the "reported state"
-pattern used in fleet OTA management. Each record represents the edge device
-reporting: what it saw, when it saw it, and how long inference took.
-
-The `/metrics` endpoint aggregates this log in real time:
-
-```json
-{
-  "total_inferences": 42,
-  "avg_latency_ms": 171.3,
-  "p50_latency_ms": 147.0,
-  "p95_latency_ms": 494.0,
-  "model_version": "v1.0.0",
-  "uptime_seconds": 3612.4
-}
-```
-
----
-
-## TPM Takeaways
-
-This project was built to answer four program questions a Principal TPM
-would ask before authorizing a fleet deployment:
-
-**1. Which model fits the edge latency budget?**
-Both yolov3-tiny and yolov3-full are viable at ~150ms p50 when weights
-are cached. Tiny is not automatically the right choice — benchmark on
-target hardware before deciding.
-
-**2. What does cold-start cost and how do we mitigate it?**
-13.9x latency penalty on first inference. Mitigation is pre-staging weights
-during vehicle provisioning via OTA — not on-demand download at first use.
-
-**3. What confidence threshold is safe for enforcement?**
-0.3 is the validated operating point. Re-validation is required on every
-model version update and every hardware change. This is a cross-functional
-sign-off, not a unilateral engineering decision.
-
-**4. Can one device handle multiple camera streams?**
-Requires explicit architectural decision between multiprocessing (RAM-bound)
-and hardware NPU (cost-bound). Must be resolved before vehicle hardware is
-locked — it cannot be solved in software after the fact.
-
----
-
-## Running the Project
-
-```bash
-# Create and activate virtual environment
-py -3.11 -m venv .venv_cv
-.venv_cv\Scripts\Activate.ps1
-
-# Install dependencies
-pip install numpy==1.26.4 opencv-python==4.8.1.78 tensorflow==2.15.0
-pip install matplotlib==3.8.4 cvlib==0.2.7 fastapi==0.104.1
-pip install uvicorn==0.24.0 python-multipart==0.0.6 nest-asyncio pillow
-
-# Run benchmarks
-python server.py
-
-# Start API server
-python main.py
-# → http://localhost:8000/docs
-```
----
-
-## Images Detected
-<img width="640" height="425" alt="bus1" src="https://github.com/user-attachments/assets/080496f0-00c0-4e05-8869-ece86b65a5c9" />
+<img width="1914" height="1029" alt="mac_M4" src="https://github.com/user-attachments/assets/53aa2ecd-5cb1-4f62-a23b-da4a660f8e9b" />
 
 
-```
 
+## Artifacts
 
-## Dependencies
----
-| Package | Version | Purpose |
-| Python | 3.11 | Runtime |
-| TensorFlow | 2.15.0 | Model backend |
-| OpenCV | 4.8.1.78 | Image processing |
-| cvlib | 0.2.7 | YOLOv3 wrapper |
-| numpy | 1.26.4 | Array processing |
-| FastAPI | 0.104.1 | Inference API |
-| uvicorn | 0.24.0 | ASGI server |
-| matplotlib | 3.8.4 | Visualization |
-
-> Note: numpy must be pinned to 1.26.4 for TF 2.15 compatibility.
-> opencv-python 4.8.x required — 4.13+ requires numpy>=2 which conflicts.
+- `benchmark_coreml.py` — benchmark script (repo: `CV_Person_Street_Detector`,
+  branch `feature/coreml-ane-benchmarking`)
+- `.github/workflows/ane-benchmark.yml` — CI workflow definition
+- `metrics/ane_results.csv`, `metrics/device_placement_log.json` — raw output, both
+  environments
