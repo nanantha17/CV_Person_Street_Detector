@@ -67,7 +67,7 @@ All three compute-unit configurations on bare-metal M4 comfortably sustain a 30 
 (p95 well under 33.3ms in every case) — the model used (YOLOv8n) is small enough that this
 particular check wasn't the limiting factor on current-generation hardware.
 
-## Summary for discussion
+## Summary 
 
 Built a Core ML benchmark, ran it in a virtualized CI environment first, got a result that was
 suspicious on its face (CPU-only fastest), researched why (hypervisor-level ANE/GPU
